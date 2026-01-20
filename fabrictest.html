@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Fabric Dyeing Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Source+Sans+Pro:wght@300;400;600&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    * {
+      font-family: 'Source Sans Pro', sans-serif;
+    }
+    
+    .heading-font {
+      font-family: 'Playfair Display', serif;
+    }
+    
+    .fabric-pattern {
+      background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px),
+        repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px);
+    }
+    
+    .canvas-container {
+      background: 
+        linear-gradient(45deg, #1a1a2e 25%, transparent 25%),
+        linear-gradient(-45deg, #1a1a2e 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1a1a2e 75%),
+        linear-gradient(-45deg, transparent 75%, #1a1a2e 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      background-color: #0f0f1a;
+    }
+    
+    .slider-track {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      border-radius: 4px;
+      outline: none;
+    }
+    
+    .slider-track::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    
+    .slider-track::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    
+    .glow-effect {
+      box-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+    }
+    
+    .upload-zone {
+      border: 2px dashed;
+      transition: all 0.3s ease;
+    }
+    
+    .upload-zone:hover {
+      transform: scale(1.02);
+    }
+    
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.4); }
+      50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.6); }
+    }
+    
+    .animate-pulse-glow {
+      animation: pulse-glow 2s infinite;
+    }
+    
+    .comparison-slider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      cursor: ew-resize;
+      z-index: 10;
+    }
+    
+    .comparison-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: ew-resize;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full overflow-auto">
+  <div id="app-wrapper" class="min-h-full w-full fabric-pattern" style="background-color: #0a0a14;"><!-- Header -->
+   <header class="py-6 px-8 border-b" style="border-color: #2d2d4a; background: linear-gradient(180deg, rgba(139,92,246,0.1) 0%, transparent 100%);">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+     <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);">
+       <svg width="28" height="28" viewbox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" /> <path d="M12 6v6l4 2" /> <circle cx="12" cy="12" r="3" fill="white" stroke="none" />
+       </svg>
+      </div>
+      <div>
+       <h1 id="app-title" class="heading-font text-2xl font-bold" style="color: #f5f5f7;">Virtual Fabric Dyeing Studio</h1>
+       <p class="text-sm" style="color: #8b8b9e;">Transform your textiles with realistic color simulation</p>
+      </div>
+     </div>
+     <div class="flex items-center gap-3"><span id="status-indicator" class="px-4 py-2 rounded-full text-sm font-medium" style="background: rgba(139,92,246,0.2); color: #a78bfa;"> ✨ Ready to dye </span>
+     </div>
+    </div>
+   </header><!-- Main Content -->
+   <main class="max-w-7xl mx-auto px-8 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><!-- Left Panel - Fabric Upload -->
+     <div class="lg:col-span-1 space-y-6">
+      <div class="rounded-2xl p-6" style="background: rgba(26, 26, 46, 0.8); border: 1px solid #2d2d4a;">
+       <h2 id="fabric-section-title" class="heading-font text-lg font-semibold mb-4" style="color: #f5f5f7;">🧵 Fabric Image</h2><!-- Fabric Upload -->
+       <div class="mb-4">
+        <div id="fabric-upload-zone" class="upload-zone rounded-xl p-8 text-center cursor-pointer" style="border-color: #4c4c6d; background: rgba(139,92,246,0.05); min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center;"><input type="file" id="fabric-input" accept="image/*" class="hidden">
+         <div id="fabric-preview-container" class="hidden w-full"><img id="fabric-preview" class="w-full rounded-lg mb-3" alt="Fabric preview">
+          <p class="text-xs" style="color: #8b8b9e;">คลิกเพื่อเปลี่ยนรูปภาพ</p>
+         </div>
+         <div id="fabric-placeholder">
+          <svg class="w-16 h-16 mx-auto mb-3" style="color: #6b6b8d;" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <p class="text-base mb-2 font-medium" style="color: #f5f5f7;">อัปโหลดรูปผ้า</p>
+          <p class="text-sm" style="color: #8b8b9e;">วางไฟล์หรือคลิกเพื่อเลือก</p>
+         </div>
+        </div>
+       </div>
+      </div>
+     </div><!-- Middle Panel - Dye Color Upload -->
+     <div class="lg:col-span-1 space-y-6">
+      <div class="rounded-2xl p-6" style="background: rgba(26, 26, 46, 0.8); border: 1px solid #2d2d4a;">
+       <h2 id="dye-section-title" class="heading-font text-lg font-semibold mb-4" style="color: #f5f5f7;">🎨 Dye Color Image</h2><!-- Dye Upload -->
+       <div class="mb-4">
+        <div id="dye-upload-zone" class="upload-zone rounded-xl p-8 text-center cursor-pointer" style="border-color: #4c4c6d; background: rgba(139,92,246,0.05); min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center;"><input type="file" id="dye-input" accept="image/*" class="hidden">
+         <div id="dye-preview-container" class="hidden w-full"><img id="dye-preview" class="w-full rounded-lg mb-3" alt="Dye color preview">
+          <div class="mt-3 p-3 rounded-lg" style="background: rgba(139,92,246,0.1);">
+           <p class="text-xs mb-1" style="color: #8b8b9e;">สีที่สกัดได้:</p>
+           <div class="flex items-center gap-2">
+            <div id="extracted-color-swatch" class="w-12 h-12 rounded-lg border-2" style="border-color: #4c4c6d;"></div><span id="extracted-color-hex" class="text-sm font-mono" style="color: #a78bfa;">#8B5CF6</span>
+           </div>
+          </div>
+          <p class="text-xs mt-3" style="color: #8b8b9e;">คลิกเพื่อเปลี่ยนรูปภาพ</p>
+         </div>
+         <div id="dye-placeholder">
+          <svg class="w-16 h-16 mx-auto mb-3" style="color: #6b6b8d;" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+          </svg>
+          <p class="text-base mb-2 font-medium" style="color: #f5f5f7;">อัปโหลดรูปสี</p>
+          <p class="text-sm" style="color: #8b8b9e;">วางไฟล์หรือคลิกเพื่อเลือก</p>
+         </div>
+        </div>
+       </div>
+      </div>
+     </div><!-- Right Panel - Result -->
+     <div class="lg:col-span-1 space-y-6">
+      <div class="rounded-2xl overflow-hidden" style="background: rgba(26, 26, 46, 0.8); border: 1px solid #2d2d4a;"><!-- Result Header -->
+       <div class="p-4 border-b" style="border-color: #2d2d4a;">
+        <h2 id="result-section-title" class="heading-font text-lg font-semibold" style="color: #f5f5f7;">✨ Result</h2>
+       </div><!-- Canvas Area -->
+       <div class="relative canvas-container" style="min-height: 400px;"><!-- Result View -->
+        <div id="result-view" class="absolute inset-0 flex items-center justify-center p-6">
+         <div id="empty-state" class="text-center">
+          <div class="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center" style="background: rgba(139,92,246,0.1);">
+           <svg class="w-10 h-10" style="color: #6b6b8d;" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+           </svg>
+          </div>
+          <h3 class="heading-font text-lg font-semibold mb-2" style="color: #f5f5f7;">อัปโหลดรูปภาพ</h3>
+          <p class="text-sm max-w-xs mx-auto" style="color: #8b8b9e;">อัปโหลดรูปผ้าและรูปสีเพื่อดูผลลัพธ์</p>
+         </div>
+         <canvas id="result-canvas" class="hidden max-w-full max-h-full rounded-lg glow-effect"></canvas>
+        </div>
+       </div>
+      </div><!-- Action Buttons -->
+      <div class="space-y-3"><button id="apply-dye-btn" class="w-full py-3 rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed animate-pulse-glow" style="background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%); color: white;"> 🎨 ย้อมผ้า </button>
+       <div class="flex gap-3"><button id="download-png-btn" class="flex-1 py-3 rounded-xl font-semibold transition-all hover:opacity-80 disabled:opacity-50" style="background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.3);"> 💾 PNG </button> <button id="download-jpg-btn" class="flex-1 py-3 rounded-xl font-semibold transition-all hover:opacity-80 disabled:opacity-50" style="background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3);"> 💾 JPG </button>
+       </div><button id="reset-btn" class="w-full py-2 rounded-xl font-semibold transition-all hover:opacity-80 text-sm" style="background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.3);"> ↺ รีเซ็ต </button>
+      </div><!-- Info Cards -->
+      <div class="grid grid-cols-2 gap-3">
+       <div class="rounded-xl p-3 text-center" style="background: rgba(26, 26, 46, 0.8); border: 1px solid #2d2d4a;">
+        <div class="text-xl mb-1">
+         🎨
+        </div>
+        <div id="current-color-display" class="text-xs font-mono" style="color: #a78bfa;">
+         #8B5CF6
+        </div>
+        <div class="text-xs" style="color: #6b6b8d;">
+         สีย้อม
+        </div>
+       </div>
+       <div class="rounded-xl p-3 text-center" style="background: rgba(26, 26, 46, 0.8); border: 1px solid #2d2d4a;">
+        <div class="text-xl mb-1">
+         ⚡
+        </div>
+        <div id="process-time" class="text-xs font-mono" style="color: #a78bfa;">
+         --
+        </div>
+        <div class="text-xs" style="color: #6b6b8d;">
+         เวลา
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+   </main><!-- Toast Container -->
+   <div id="toast-container" class="fixed bottom-8 right-8 z-50 space-y-2"></div>
+  </div>
+  <script>
+    // ============================================
+    // Configuration and State Management
+    // ============================================
+    
+    const defaultConfig = {
+      app_title: 'Virtual Fabric Dyeing Studio',
+      fabric_section_title: '🧵 Fabric Image',
+      dye_section_title: '🎨 Dye Color Image',
+      result_section_title: '✨ Result',
+      background_color: '#0a0a14',
+      surface_color: '#1a1a2e',
+      text_color: '#f5f5f7',
+      primary_action_color: '#8b5cf6',
+      secondary_action_color: '#a78bfa'
+    };
+    
+    let config = { ...defaultConfig };
+    
+    // Application state
+    let state = {
+      fabricImage: null,
+      fabricImageData: null,
+      dyeColor: null,
+      dyeImageData: null,
+      maskData: null,
+      isDyed: false
+    };
+    
+    // ============================================
+    // Element SDK Integration
+    // ============================================
+    
+    function applyConfig(cfg) {
+      // Update text content
+      document.getElementById('app-title').textContent = cfg.app_title || defaultConfig.app_title;
+      document.getElementById('fabric-section-title').textContent = cfg.fabric_section_title || defaultConfig.fabric_section_title;
+      document.getElementById('dye-section-title').textContent = cfg.dye_section_title || defaultConfig.dye_section_title;
+      document.getElementById('result-section-title').textContent = cfg.result_section_title || defaultConfig.result_section_title;
+      
+      // Update colors
+      const wrapper = document.getElementById('app-wrapper');
+      wrapper.style.backgroundColor = cfg.background_color || defaultConfig.background_color;
+      
+      // Update text colors
+      document.querySelectorAll('.heading-font').forEach(el => {
+        if (!el.closest('[style*="color"]') || el.id) {
+          el.style.color = cfg.text_color || defaultConfig.text_color;
+        }
+      });
+      
+      // Update primary action button
+      const applyBtn = document.getElementById('apply-dye-btn');
+      applyBtn.style.background = `linear-gradient(135deg, ${cfg.primary_action_color || defaultConfig.primary_action_color} 0%, #d946ef 100%)`;
+      
+      // Update secondary action elements
+      document.querySelectorAll('[style*="color: #a78bfa"]').forEach(el => {
+        el.style.color = cfg.secondary_action_color || defaultConfig.secondary_action_color;
+      });
+    }
+    
+    // Initialize Element SDK
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (newConfig) => {
+          config = { ...defaultConfig, ...newConfig };
+          applyConfig(config);
+        },
+        mapToCapabilities: (cfg) => ({
+          recolorables: [
+            {
+              get: () => cfg.background_color || defaultConfig.background_color,
+              set: (value) => {
+                cfg.background_color = value;
+                window.elementSdk.setConfig({ background_color: value });
+              }
+            },
+            {
+              get: () => cfg.surface_color || defaultConfig.surface_color,
+              set: (value) => {
+                cfg.surface_color = value;
+                window.elementSdk.setConfig({ surface_color: value });
+              }
+            },
+            {
+              get: () => cfg.text_color || defaultConfig.text_color,
+              set: (value) => {
+                cfg.text_color = value;
+                window.elementSdk.setConfig({ text_color: value });
+              }
+            },
+            {
+              get: () => cfg.primary_action_color || defaultConfig.primary_action_color,
+              set: (value) => {
+                cfg.primary_action_color = value;
+                window.elementSdk.setConfig({ primary_action_color: value });
+              }
+            },
+            {
+              get: () => cfg.secondary_action_color || defaultConfig.secondary_action_color,
+              set: (value) => {
+                cfg.secondary_action_color = value;
+                window.elementSdk.setConfig({ secondary_action_color: value });
+              }
+            }
+          ],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (cfg) => new Map([
+          ['app_title', cfg.app_title || defaultConfig.app_title],
+          ['fabric_section_title', cfg.fabric_section_title || defaultConfig.fabric_section_title],
+          ['dye_section_title', cfg.dye_section_title || defaultConfig.dye_section_title],
+          ['result_section_title', cfg.result_section_title || defaultConfig.result_section_title]
+        ])
+      });
+    }
+    
+    // ============================================
+    // Utility Functions
+    // ============================================
+    
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'rgba(34,197,94,0.9)',
+        error: 'rgba(239,68,68,0.9)',
+        info: 'rgba(139,92,246,0.9)'
+      };
+      
+      toast.className = 'px-4 py-3 rounded-xl text-white text-sm font-medium shadow-lg transform transition-all duration-300 translate-x-full';
+      toast.style.background = colors[type];
+      toast.textContent = message;
+      
+      container.appendChild(toast);
+      
+      // Animate in
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-full');
+      });
+      
+      // Auto remove
+      setTimeout(() => {
+        toast.classList.add('translate-x-full');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+    
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    }
+    
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => {
+        const hex = Math.round(x).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      }).join('').toUpperCase();
+    }
+    
+    function updateStatus(text, color = '#a78bfa') {
+      const indicator = document.getElementById('status-indicator');
+      indicator.textContent = text;
+      indicator.style.color = color;
+    }
+    
+    // ============================================
+    // Image Processing Functions
+    // ============================================
+    
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) {
+          reject(new Error('No file provided'));
+          return;
+        }
+        
+        if (!file.type.startsWith('image/')) {
+          reject(new Error('File is not an image'));
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+    }
+    
+    /**
+     * Generate a fabric segmentation mask based on luminance
+     * Returns values between 0-1 for each pixel
+     */
+    function generateFabricMask(imageData, threshold = 0.5) {
+      const data = imageData.data;
+      const mask = new Float32Array(data.length / 4);
+      
+      // Calculate luminance for each pixel
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i] / 255;
+        const g = data[i + 1] / 255;
+        const b = data[i + 2] / 255;
+        
+        // Calculate luminance
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        
+        // Calculate saturation
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const saturation = max === 0 ? 0 : (max - min) / max;
+        
+        // Combine factors for fabric detection
+        // Fabric typically has texture variation and moderate saturation
+        const textureScore = 1 - Math.abs(luminance - 0.5) * 2;
+        const fabricScore = (textureScore * 0.6 + (1 - saturation * 0.3) * 0.4);
+        
+        // Apply threshold with smooth falloff
+        const adjustedScore = Math.pow(fabricScore, 1 - threshold);
+        mask[i / 4] = Math.min(Math.max(adjustedScore, 0), 1);
+      }
+      
+      return mask;
+    }
+    
+    /**
+     * Apply absorption-based dye color model
+     * Uses the specified equation for realistic fabric dyeing
+     */
+    function applyDyeEffect(fabricImageData, dyeColor, mask, intensity, absorbance) {
+      const result = new ImageData(
+        new Uint8ClampedArray(fabricImageData.data),
+        fabricImageData.width,
+        fabricImageData.height
+      );
+      
+      const data = result.data;
+      
+      // Normalize dye color to 0-1 range
+      const dr = dyeColor.r / 255;
+      const dg = dyeColor.g / 255;
+      const db = dyeColor.b / 255;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const pixelIndex = i / 4;
+        const maskValue = mask[pixelIndex];
+        
+        // Normalize original fabric RGB (0-1)
+        const r = data[i] / 255;
+        const g = data[i + 1] / 255;
+        const b = data[i + 2] / 255;
+        
+        // Apply absorption-based color model (as specified)
+        // a = min(alpha * intensity * maskValue, 1)
+        const a = Math.min(absorbance * intensity * maskValue, 1);
+        
+        // rOut = r * (1 - a) + (r * dr) * a
+        // gOut = g * (1 - a) + (g * dg) * a
+        // bOut = b * (1 - a) + (b * db) * a
+        const rOut = r * (1 - a) + (r * dr) * a;
+        const gOut = g * (1 - a) + (g * dg) * a;
+        const bOut = b * (1 - a) + (b * db) * a;
+        
+        // Convert back to 0-255 range
+        data[i] = Math.round(rOut * 255);
+        data[i + 1] = Math.round(gOut * 255);
+        data[i + 2] = Math.round(bOut * 255);
+        // Alpha channel remains unchanged
+      }
+      
+      return result;
+    }
+    
+    /**
+     * Extract average color from an image
+     */
+    function extractAverageColor(imageData) {
+      const data = imageData.data;
+      let r = 0, g = 0, b = 0, count = 0;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        count++;
+      }
+      
+      return {
+        r: Math.round(r / count),
+        g: Math.round(g / count),
+        b: Math.round(b / count)
+      };
+    }
+    
+    // ============================================
+    // Canvas Operations
+    // ============================================
+    
+    function drawToCanvas(canvas, imageData) {
+      canvas.width = imageData.width;
+      canvas.height = imageData.height;
+      const ctx = canvas.getContext('2d');
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    function drawImageToCanvas(canvas, image, maxSize = 800) {
+      // Scale image if too large
+      let width = image.width;
+      let height = image.height;
+      
+      if (width > maxSize || height > maxSize) {
+        const scale = maxSize / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(image, 0, 0, width, height);
+      
+      return ctx.getImageData(0, 0, width, height);
+    }
+    
+    function drawMaskToCanvas(canvas, mask, width, height) {
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.createImageData(width, height);
+      
+      for (let i = 0; i < mask.length; i++) {
+        const value = Math.round(mask[i] * 255);
+        imageData.data[i * 4] = value;
+        imageData.data[i * 4 + 1] = value;
+        imageData.data[i * 4 + 2] = value;
+        imageData.data[i * 4 + 3] = 255;
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
+    // ============================================
+    // UI Update Functions
+    // ============================================
+    
+    function updateColorDisplay() {
+      const display = document.getElementById('current-color-display');
+      display.textContent = rgbToHex(state.dyeColor.r, state.dyeColor.g, state.dyeColor.b);
+    }
+    
+    // ============================================
+    // Main Processing Function
+    // ============================================
+    
+    async function processDyeing() {
+      if (!state.fabricImageData) {
+        showToast('กรุณาอัปโหลดรูปผ้าก่อน', 'error');
+        return;
+      }
+      
+      if (!state.dyeColor) {
+        showToast('กรุณาอัปโหลดรูปสีก่อน', 'error');
+        return;
+      }
+      
+      updateStatus('🎨 กำลังประมวลผล...', '#eab308');
+      const startTime = performance.now();
+      
+      try {
+        // Generate mask with fixed parameters
+        state.maskData = generateFabricMask(state.fabricImageData, 0.5);
+        
+        // Apply dye effect with fixed parameters
+        const dyedImageData = applyDyeEffect(
+          state.fabricImageData,
+          state.dyeColor,
+          state.maskData,
+          0.75, // Fixed intensity
+          0.75  // Fixed absorbance
+        );
+        
+        // Draw result
+        const resultCanvas = document.getElementById('result-canvas');
+        drawToCanvas(resultCanvas, dyedImageData);
+        
+        // Show canvas, hide empty state
+        document.getElementById('empty-state').classList.add('hidden');
+        resultCanvas.classList.remove('hidden');
+        
+        state.isDyed = true;
+        
+        // Update UI
+        const endTime = performance.now();
+        document.getElementById('process-time').textContent = `${(endTime - startTime).toFixed(0)}ms`;
+        updateStatus('✨ ย้อมผ้าสำเร็จ!', '#4ade80');
+        
+        showToast('ย้อมผ้าสำเร็จ!', 'success');
+      } catch (error) {
+        console.error('Processing error:', error);
+        updateStatus('❌ เกิดข้อผิดพลาด', '#ef4444');
+        showToast('เกิดข้อผิดพลาดในการประมวลผล', 'error');
+      }
+    }
+    
+    // ============================================
+    // Event Handlers
+    // ============================================
+    
+    function setupEventListeners() {
+      // Fabric upload
+      const fabricInput = document.getElementById('fabric-input');
+      const fabricZone = document.getElementById('fabric-upload-zone');
+      
+      fabricZone.addEventListener('click', () => fabricInput.click());
+      
+      fabricZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fabricZone.style.borderColor = '#8b5cf6';
+        fabricZone.style.background = 'rgba(139,92,246,0.15)';
+      });
+      
+      fabricZone.addEventListener('dragleave', () => {
+        fabricZone.style.borderColor = '#4c4c6d';
+        fabricZone.style.background = 'rgba(139,92,246,0.05)';
+      });
+      
+      fabricZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        fabricZone.style.borderColor = '#4c4c6d';
+        fabricZone.style.background = 'rgba(139,92,246,0.05)';
+        
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          await handleFabricUpload(file);
+        }
+      });
+      
+      fabricInput.addEventListener('change', async (e) => {
+        if (e.target.files[0]) {
+          await handleFabricUpload(e.target.files[0]);
+        }
+      });
+      
+      // Dye image upload
+      const dyeInput = document.getElementById('dye-input');
+      const dyeZone = document.getElementById('dye-upload-zone');
+      
+      dyeZone.addEventListener('click', () => dyeInput.click());
+      
+      dyeZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dyeZone.style.borderColor = '#8b5cf6';
+        dyeZone.style.background = 'rgba(139,92,246,0.15)';
+      });
+      
+      dyeZone.addEventListener('dragleave', () => {
+        dyeZone.style.borderColor = '#4c4c6d';
+        dyeZone.style.background = 'rgba(139,92,246,0.05)';
+      });
+      
+      dyeZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dyeZone.style.borderColor = '#4c4c6d';
+        dyeZone.style.background = 'rgba(139,92,246,0.05)';
+        
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          await handleDyeImageUpload(file);
+        }
+      });
+      
+      dyeInput.addEventListener('change', async (e) => {
+        if (e.target.files[0]) {
+          await handleDyeImageUpload(e.target.files[0]);
+        }
+      });
+      
+      // Buttons
+      document.getElementById('apply-dye-btn').addEventListener('click', processDyeing);
+      
+      document.getElementById('reset-btn').addEventListener('click', () => {
+        state.fabricImage = null;
+        state.fabricImageData = null;
+        state.dyeColor = null;
+        state.maskData = null;
+        state.isDyed = false;
+        
+        // Reset fabric UI
+        document.getElementById('fabric-preview-container').classList.add('hidden');
+        document.getElementById('fabric-placeholder').classList.remove('hidden');
+        
+        // Reset dye UI
+        document.getElementById('dye-preview-container').classList.add('hidden');
+        document.getElementById('dye-placeholder').classList.remove('hidden');
+        
+        // Reset result UI
+        document.getElementById('empty-state').classList.remove('hidden');
+        document.getElementById('result-canvas').classList.add('hidden');
+        document.getElementById('current-color-display').textContent = '--';
+        document.getElementById('process-time').textContent = '--';
+        
+        updateStatus('✨ พร้อม��้อมผ้า', '#a78bfa');
+        showToast('รีเซ็ตเรียบร้อย', 'info');
+      });
+      
+      // Download buttons
+      document.getElementById('download-png-btn').addEventListener('click', () => downloadImage('png'));
+      document.getElementById('download-jpg-btn').addEventListener('click', () => downloadImage('jpeg'));
+    }
+    
+    async function handleFabricUpload(file) {
+      try {
+        updateStatus('📤 กำลังโหลดรูปภาพ...', '#eab308');
+        
+        state.fabricImage = await loadImage(file);
+        
+        // Create temp canvas to get image data
+        const tempCanvas = document.createElement('canvas');
+        state.fabricImageData = drawImageToCanvas(tempCanvas, state.fabricImage, 800);
+        
+        // Update preview
+        document.getElementById('fabric-preview').src = tempCanvas.toDataURL();
+        document.getElementById('fabric-preview-container').classList.remove('hidden');
+        document.getElementById('fabric-placeholder').classList.add('hidden');
+        
+        updateStatus('✅ โหลดรูปภาพสำเร็จ', '#4ade80');
+        showToast('โหลดรูปผ้าสำเร็จ!', 'success');
+      } catch (error) {
+        console.error('Upload error:', error);
+        showToast('เกิดข้อผิดพลาดในการโหลดรูปภาพ', 'error');
+        updateStatus('❌ อัปโหลดล้มเหลว', '#ef4444');
+      }
+    }
+    
+    async function handleDyeImageUpload(file) {
+      try {
+        updateStatus('📤 กำลังโหลดรูปสี...', '#eab308');
+        
+        const dyeImage = await loadImage(file);
+        
+        // Extract color from image
+        const tempCanvas = document.createElement('canvas');
+        const dyeImageData = drawImageToCanvas(tempCanvas, dyeImage, 100);
+        state.dyeColor = extractAverageColor(dyeImageData);
+        
+        // Update preview
+        document.getElementById('dye-preview').src = tempCanvas.toDataURL();
+        document.getElementById('dye-preview-container').classList.remove('hidden');
+        document.getElementById('dye-placeholder').classList.add('hidden');
+        
+        // Update color swatch
+        const hex = rgbToHex(state.dyeColor.r, state.dyeColor.g, state.dyeColor.b);
+        document.getElementById('extracted-color-swatch').style.background = hex;
+        document.getElementById('extracted-color-hex').textContent = hex;
+        updateColorDisplay();
+        
+        updateStatus('✅ สกัดสีสำเร็จ', '#4ade80');
+        showToast('สกัดสีจากรูปภาพสำเร็จ!', 'success');
+      } catch (error) {
+        console.error('Dye upload error:', error);
+        showToast('เกิดข้อผิดพลาดในการสกัดสี', 'error');
+        updateStatus('❌ สกัดสีล้มเหลว', '#ef4444');
+      }
+    }
+    
+    function downloadImage(format) {
+      if (!state.isDyed) {
+        showToast('กรุณาย้อมผ้าก่อนดาวน์โหลด', 'error');
+        return;
+      }
+      
+      const canvas = document.getElementById('result-canvas');
+      const link = document.createElement('a');
+      link.download = `dyed-fabric.${format === 'jpeg' ? 'jpg' : 'png'}`;
+      link.href = canvas.toDataURL(`image/${format}`, 0.95);
+      link.click();
+      
+      showToast(`ดาวน์โหลดไฟล์ ${format.toUpperCase()} สำเร็จ!`, 'success');
+    }
+    
+    // ============================================
+    // Initialization
+    // ============================================
+    
+    function init() {
+      applyConfig(config);
+      setupEventListeners();
+    }
+    
+    // Start the application
+    init();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c0e1001032898e2',t:'MTc2ODkwNjc2Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
